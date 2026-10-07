@@ -106,8 +106,8 @@ func systemItems(_ q: String) -> [(Int, Item)] {
 
 // MARK: File search
 
-/// Filename search in the home folder via the Spotlight index. Results arrive async; `onUpdate` re-renders.
-// ponytail: name match only, first 20 hits by last-used date. Add kMDItemTextContent for content search.
+/// Name and content search in the home folder via the Spotlight index. Results arrive async; `onUpdate` re-renders.
+// ponytail: content matches words starting with the query (Spotlight's fast path), not arbitrary substrings. 20 hits max.
 @MainActor final class FileSearch {
     let query = NSMetadataQuery()
     var current = ""
@@ -129,16 +129,19 @@ func systemItems(_ q: String) -> [(Int, Item)] {
         query.stop()
         results = []
         guard q.count >= 3 else { return }
-        query.predicate = NSPredicate(format: "%K LIKE[cd] %@", NSMetadataItemFSNameKey, "*\(q)*")
+        query.predicate = NSPredicate(format: "%K LIKE[cd] %@ OR kMDItemTextContent LIKE[cd] %@", NSMetadataItemFSNameKey, "*\(q)*", "\(q)*")
         query.start()
     }
 
     func gathered() {
         query.stop()
         let library = NSHomeDirectory() + "/Library/"
-        results = Array((0..<min(query.resultCount, 500)).compactMap {
+        let paths = (0..<min(query.resultCount, 500)).compactMap {
             (query.result(at: $0) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String
-        }.filter { !$0.hasPrefix(library) && !$0.hasSuffix(".app") && !$0.contains("/.") && !$0.contains("/node_modules/") }.prefix(20))
+        }.filter { !$0.hasPrefix(library) && !$0.hasSuffix(".app") && !$0.contains("/.") && !$0.contains("/node_modules/") }
+        // Name matches before content-only matches; each group keeps last-used order.
+        let byName = Dictionary(grouping: paths) { URL(fileURLWithPath: $0).lastPathComponent.localizedCaseInsensitiveContains(current) }
+        results = Array(((byName[true] ?? []) + (byName[false] ?? [])).prefix(20))
         onUpdate()
     }
 }
