@@ -106,16 +106,33 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
             } + scripts.compactMap { path in
                 let name = String(URL(fileURLWithPath: path).lastPathComponent.dropLast(3))
                 return score(q, name).map { s in
-                    (s, Item(title: name, subtitle: path, icon: { self.icon(path) }) { runScript(path) })
+                    (s, Item(title: name, subtitle: path, icon: { self.icon(path) }) {
+                        runScript(path) { self.showOutput(name, $0, $1) }
+                    })
                 }
             } + (d.bool(forKey: "system") ? systemItems(q) : [])
             let calc = d.bool(forKey: "calc") ? calcItem(q) : nil
             items = Array(((calc.map { [$0] } ?? []) + ranked.sorted { $0.0 > $1.0 }.map(\.1)).prefix(maxRows))
         }
+        layout()
+    }
+
+    /// Reopens the panel with a finished script's output, one row per line; Enter copies. Silent on clean exit with no output.
+    func showOutput(_ name: String, _ out: String, _ status: Int32) {
+        let lines = out.split(whereSeparator: \.isNewline).suffix(200)  // ponytail: last 200 lines only
+        if lines.isEmpty && status == 0 { return }
+        if !isVisible { toggle() }
+        let header = Item(title: "\(name) · exit \(status)", subtitle: lines.isEmpty ? "No output" : "Enter copies all, or pick a line",
+                          icon: { symbol(status == 0 ? "checkmark.circle" : "xmark.octagon") }) { Lilith.copy(out) }
+        items = [header] + lines.map { line in Item(title: String(line), subtitle: "", icon: { nil }) { Lilith.copy(String(line)) } }
+        layout()
+    }
+
+    func layout() {
         table.reloadData()
         if !items.isEmpty { table.selectRowIndexes([0], byExtendingSelection: false) }
 
-        let listHeight = items.isEmpty ? 0 : CGFloat(items.count) * rowHeight + 8
+        let listHeight = items.isEmpty ? 0 : CGFloat(min(items.count, maxRows)) * rowHeight + 8
         let height = fieldHeight + listHeight
         setFrame(NSRect(x: frame.minX, y: top - height, width: width, height: height), display: true)
         field.frame = NSRect(x: 16, y: height - fieldHeight + 12, width: width - 32, height: 32)

@@ -112,8 +112,8 @@ func scanScripts() -> [String] {
     return ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []).filter { $0.hasSuffix(".sh") }.map { dir + "/" + $0 }
 }
 
-/// Runs in a new Terminal window or in the background (beep on failure, output discarded). cwd = script's folder.
-func runScript(_ path: String) {
+/// Runs in a new Terminal window, or in the background and hands stdout+stderr and exit status to `done`. cwd = script's folder.
+func runScript(_ path: String, done: @escaping (String, Int32) -> Void) {
     let dir = URL(fileURLWithPath: path).deletingLastPathComponent().path
     if UserDefaults.standard.bool(forKey: "scriptsInTerminal") {
         let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }  // shell single-quote
@@ -128,8 +128,15 @@ func runScript(_ path: String) {
     // Login shell for the user's PATH (GUI apps get a bare one). Executable scripts honor their shebang.
     p.arguments = ["-lc", "[ -x \"$0\" ] && exec \"$0\"; exec /bin/sh \"$0\"", path]
     p.currentDirectoryURL = URL(fileURLWithPath: dir)
-    p.terminationHandler = { if $0.terminationStatus != 0 { DispatchQueue.main.async { NSSound.beep() } } }
-    do { try p.run() } catch { NSSound.beep() }
+    let pipe = Pipe()
+    p.standardOutput = pipe
+    p.standardError = pipe
+    DispatchQueue.global().async {
+        do { try p.run() } catch { return DispatchQueue.main.async { done(error.localizedDescription, -1) } }
+        let out = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        p.waitUntilExit()
+        DispatchQueue.main.async { done(out, p.terminationStatus) }
+    }
 }
 
 // MARK: Clipboard history
