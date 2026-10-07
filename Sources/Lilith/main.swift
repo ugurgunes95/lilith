@@ -84,6 +84,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
             m.state = defaults.bool(forKey: key) ? .on : .off
         }
         add(menu, "Clear Clipboard History", #selector(clearClipboard))
+        let folder = defaults.string(forKey: "scriptsFolder").map { "Scripts Folder: " + URL(fileURLWithPath: $0).lastPathComponent + "…" }
+        add(menu, folder ?? "Choose Scripts Folder…", #selector(chooseScripts))
         menu.addItem(.separator())
         add(menu, "Launch at Login", #selector(toggleLogin)).state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(withTitle: "Quit Lilith", action: #selector(NSApplication.terminate), keyEquivalent: "q")
@@ -116,6 +118,15 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     }
 
     @objc func clearClipboard() { Clipboard.history.removeAll() }
+
+    @objc func chooseScripts() {
+        let p = NSOpenPanel()
+        p.canChooseFiles = false
+        p.canChooseDirectories = true
+        p.message = "Choose a folder of .sh scripts to run from Lilith"
+        NSApp.activate()  // accessory app: otherwise the dialog opens behind other windows
+        if p.runModal() == .OK, let url = p.url { defaults.set(url.path, forKey: "scriptsFolder") }
+    }
 
     @objc func toggleLogin() {
         let s = SMAppService.mainApp

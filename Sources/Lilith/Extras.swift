@@ -104,6 +104,25 @@ func systemItems(_ q: String) -> [(Int, Item)] {
     }
 }
 
+// MARK: Scripts
+
+// ponytail: top-level *.sh only, re-read each time the panel opens. Recurse if people nest folders.
+func scanScripts() -> [String] {
+    guard let dir = UserDefaults.standard.string(forKey: "scriptsFolder") else { return [] }
+    return ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []).filter { $0.hasSuffix(".sh") }.map { dir + "/" + $0 }
+}
+
+/// Runs in the background, cwd = script's folder. Beeps on failure; output is discarded.
+func runScript(_ path: String) {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/bin/zsh")
+    // Login shell for the user's PATH (GUI apps get a bare one). Executable scripts honor their shebang.
+    p.arguments = ["-lc", "[ -x \"$0\" ] && exec \"$0\"; exec /bin/sh \"$0\"", path]
+    p.currentDirectoryURL = URL(fileURLWithPath: path).deletingLastPathComponent()
+    p.terminationHandler = { if $0.terminationStatus != 0 { DispatchQueue.main.async { NSSound.beep() } } }
+    do { try p.run() } catch { NSSound.beep() }
+}
+
 // MARK: Clipboard history
 
 // ponytail: text only, stored plaintext in the app's UserDefaults plist (readable by this macOS user only). Encrypt via Keychain if that's not enough.

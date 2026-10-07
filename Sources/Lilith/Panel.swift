@@ -13,6 +13,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     let table = NSTableView()
     let scroll = NSScrollView()
     var apps: [App] = []
+    var scripts: [String] = []
     var items: [Item] = []
     var icons: [String: NSImage] = [:]
     // ponytail: all-time activation counts, no decay. Add time decay if old favorites linger.
@@ -78,6 +79,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     func toggle(query: String = "") {
         if isVisible { return orderOut(nil) }
         apps = scanApps()
+        scripts = scanScripts()
         field.stringValue = query
         let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main!
         let vf = screen.visibleFrame
@@ -100,6 +102,11 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
                     (s, Item(title: app.name, subtitle: app.path, icon: { self.icon(app.path) }) {
                         NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
                     })
+                }
+            } + scripts.compactMap { path in
+                let name = String(URL(fileURLWithPath: path).lastPathComponent.dropLast(3))
+                return score(q, name).map { s in
+                    (s, Item(title: name, subtitle: path, icon: { self.icon(path) }) { runScript(path) })
                 }
             } + (d.bool(forKey: "system") ? systemItems(q) : [])
             let calc = d.bool(forKey: "calc") ? calcItem(q) : nil
