@@ -3,7 +3,7 @@ import AppKit
 struct Item {
     let title: String
     let subtitle: String
-    let icon: NSImage?
+    let icon: () -> NSImage?  // lazy: only visible rows load icons
     let action: () -> Void
 }
 
@@ -41,7 +41,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
         field.drawsBackground = false
         field.focusRingType = .none
         field.font = .systemFont(ofSize: 24)
-        field.placeholderString = "Search apps"
+        field.placeholderString = "Search apps, 2+2, or cb for clipboard"
         field.delegate = self
         bg.addSubview(field)
 
@@ -90,14 +90,20 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
 
     func refresh() {
         let q = field.stringValue
-        items = apps.compactMap { app in (q.isEmpty ? usage[app.id] : score(q, app.name)).map { ($0, app) } }
-            .sorted { $0.0 > $1.0 }
-            .prefix(maxRows)
-            .map { _, app in
-                Item(title: app.name, subtitle: app.path, icon: icon(app.path)) {
-                    NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
+        let d = UserDefaults.standard
+        if d.bool(forKey: "clipboard"), q == "cb" || q.hasPrefix("cb ") {
+            items = Array(Clipboard.items(String(q.dropFirst(3))).prefix(maxRows))
+        } else {
+            let ranked = apps.compactMap { app in
+                (q.isEmpty ? usage[app.id] : score(q, app.name)).map { s in
+                    (s, Item(title: app.name, subtitle: app.path, icon: { self.icon(app.path) }) {
+                        NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
+                    })
                 }
-            }
+            } + (d.bool(forKey: "system") ? systemItems(q) : [])
+            let calc = d.bool(forKey: "calc") ? calcItem(q) : nil
+            items = Array(((calc.map { [$0] } ?? []) + ranked.sorted { $0.0 > $1.0 }.map(\.1)).prefix(maxRows))
+        }
         table.reloadData()
         if !items.isEmpty { table.selectRowIndexes([0], byExtendingSelection: false) }
 
@@ -117,8 +123,8 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
 
     func run(_ row: Int) {
         guard items.indices.contains(row) else { return }
-        items[row].action()
         orderOut(nil)
+        items[row].action()
     }
 
     @objc func clicked() { run(table.clickedRow) }
@@ -152,7 +158,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let item = items[row]
         let view = NSView()
-        let image = NSImageView(image: item.icon ?? NSImage())
+        let image = NSImageView(image: item.icon() ?? NSImage())
         image.frame = NSRect(x: 8, y: 6, width: 32, height: 32)
         let title = NSTextField(labelWithString: item.title)
         title.font = .systemFont(ofSize: 15)
