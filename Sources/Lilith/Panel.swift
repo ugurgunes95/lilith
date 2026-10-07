@@ -86,6 +86,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
 
     func toggle(query: String = "") {
         if isVisible { return orderOut(nil) }
+        NSApp.unhideWithoutActivation()  // closing a preview hides the app, and a hidden app's windows can't show
         apps = scanApps()
         scripts = scanScripts()
         field.stringValue = query
@@ -193,6 +194,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     func preview(_ path: String) {
         previewURL = URL(fileURLWithPath: path)
         let ql = QLPreviewPanel.shared()!
+        NSApp.activate()  // the launcher takes keys without activating us; the preview needs a real active app to get focus
         ql.isVisible ? ql.reloadData() : ql.makeKeyAndOrderFront(nil)
     }
 
@@ -201,6 +203,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
         panel.dataSource = nil
         orderOut(nil)  // preview closed = done, like opening a file; never grab focus back from another app
+        NSApp.hide(nil)  // undo the activation so focus returns to the previous app
     }
     func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { previewURL == nil ? 0 : 1 }
     func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! { previewURL as NSURL? }
