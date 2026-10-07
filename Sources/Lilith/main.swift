@@ -8,7 +8,7 @@ if CommandLine.arguments.contains("--selftest") {
 }
 
 let defaults = UserDefaults.standard
-defaults.register(defaults: ["calc": true, "system": true, "clipboard": true])
+defaults.register(defaults: ["calc": true, "system": true, "clipboard": true, "files": true])
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
@@ -80,6 +80,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         toggle(menu, "Calculator", "calc")
         toggle(menu, "System Commands", "system")
+        toggle(menu, "File Search", "files")
         toggle(menu, "Clipboard History", "clipboard")
         add(menu, "Clear Clipboard History", #selector(clearClipboard))
         let folder = defaults.string(forKey: "scriptsFolder").map { "Scripts Folder: " + URL(fileURLWithPath: $0).lastPathComponent + "…" }

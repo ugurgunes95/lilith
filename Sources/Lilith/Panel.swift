@@ -14,6 +14,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     let scroll = NSScrollView()
     var apps: [App] = []
     var scripts: [String] = []
+    let files = FileSearch()
     var items: [Item] = []
     var icons: [String: NSImage] = [:]
     // ponytail: all-time activation counts, no decay. Add time decay if old favorites linger.
@@ -29,6 +30,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         delegate = self
+        files.onUpdate = { [weak self] in self?.refresh() }
 
         let bg = NSVisualEffectView()
         bg.material = .hudWindow
@@ -42,7 +44,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
         field.drawsBackground = false
         field.focusRingType = .none
         field.font = .systemFont(ofSize: 24)
-        field.placeholderString = "Search apps, 2+2, or cb for clipboard"
+        field.placeholderString = "Search apps, files, 2+2, or cb for clipboard"
         field.delegate = self
         bg.addSubview(field)
 
@@ -112,7 +114,12 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
                 }
             } + (d.bool(forKey: "system") ? systemItems(q) : [])
             let calc = d.bool(forKey: "calc") ? calcItem(q) : nil
-            items = Array(((calc.map { [$0] } ?? []) + ranked.sorted { $0.0 > $1.0 }.map(\.1)).prefix(maxRows))
+            files.search(d.bool(forKey: "files") ? q : "")
+            let found = files.results.map { path in
+                Item(title: FileManager.default.displayName(atPath: path), subtitle: (path as NSString).abbreviatingWithTildeInPath,
+                     icon: { self.icon(path) }) { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
+            }
+            items = Array(((calc.map { [$0] } ?? []) + ranked.sorted { $0.0 > $1.0 }.map(\.1) + found).prefix(maxRows))
         }
         layout()
     }
