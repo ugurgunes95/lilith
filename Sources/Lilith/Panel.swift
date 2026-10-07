@@ -75,10 +75,10 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
 
     override var canBecomeKey: Bool { true }
 
-    func toggle() {
+    func toggle(query: String = "") {
         if isVisible { return orderOut(nil) }
         apps = scanApps()
-        field.stringValue = ""
+        field.stringValue = query
         let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main!
         let vf = screen.visibleFrame
         top = vf.maxY - vf.height * 0.25
@@ -86,6 +86,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
         refresh()
         makeKeyAndOrderFront(nil)
         makeFirstResponder(field)
+        field.currentEditor()?.selectedRange = NSRange(location: query.count, length: 0)  // caret after prefill, not select-all
     }
 
     func refresh() {

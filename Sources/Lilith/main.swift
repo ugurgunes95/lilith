@@ -16,30 +16,43 @@ let panel = Panel()
 Clipboard.start()
 
 // ponytail: preset list, no free-form recorder. Add a key-capture recorder if presets aren't enough.
-let shortcuts: [(name: String, key: Int, mods: Int)] = [
+let launcherShortcuts: [(name: String, key: Int, mods: Int)] = [
     ("⌥ Space", kVK_Space, optionKey),
     ("⌃ Space", kVK_Space, controlKey),
     ("⌘ Space (disable Spotlight's first)", kVK_Space, cmdKey),
     ("⌥⌘ Space", kVK_Space, cmdKey | optionKey),
     ("⇧⌘ Space", kVK_Space, cmdKey | shiftKey),
 ]
+let clipboardShortcuts: [(name: String, key: Int, mods: Int)] = [
+    ("⇧⌘V", kVK_ANSI_V, cmdKey | shiftKey),
+    ("⌃⌥V", kVK_ANSI_V, controlKey | optionKey),
+    ("⌥⌘V", kVK_ANSI_V, cmdKey | optionKey),
+    ("⌃⌘V", kVK_ANSI_V, cmdKey | controlKey),
+]
+// Index = hotkey id: 0 launcher, 1 clipboard.
+let hotKeyPresets = [("shortcut", launcherShortcuts), ("clipboardShortcut", clipboardShortcuts)]
 
 // Carbon hotkey: global, needs no Accessibility permission.
 var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-InstallEventHandler(GetApplicationEventTarget(), { _, _, _ in
-    MainActor.assumeIsolated { panel.toggle() }
+InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
+    var hk = EventHotKeyID()
+    GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                      nil, MemoryLayout<EventHotKeyID>.size, nil, &hk)
+    MainActor.assumeIsolated { hk.id == 1 ? panel.toggle(query: "cb ") : panel.toggle() }
     return noErr
 }, 1, &spec, nil, nil)
-var hotKey: EventHotKeyRef?
+var hotKeys: [EventHotKeyRef?] = [nil, nil]
 
-func registerHotKey(_ i: Int) -> Bool {
-    if let hotKey { UnregisterEventHotKey(hotKey) }
-    hotKey = nil
-    let s = shortcuts[shortcuts.indices.contains(i) ? i : 0]
-    return RegisterEventHotKey(UInt32(s.key), UInt32(s.mods), EventHotKeyID(signature: OSType(0x4C4E4348), id: 1),
-                               GetApplicationEventTarget(), 0, &hotKey) == noErr
+func registerHotKey(_ id: Int, _ i: Int) -> Bool {
+    if let h = hotKeys[id] { UnregisterEventHotKey(h) }
+    hotKeys[id] = nil
+    if id == 1 && !defaults.bool(forKey: "clipboard") { return true }
+    let presets = hotKeyPresets[id].1
+    let s = presets[presets.indices.contains(i) ? i : 0]
+    return RegisterEventHotKey(UInt32(s.key), UInt32(s.mods), EventHotKeyID(signature: OSType(0x4C4E4348), id: UInt32(id)),
+                               GetApplicationEventTarget(), 0, &hotKeys[id]) == noErr
 }
-_ = registerHotKey(defaults.integer(forKey: "shortcut"))
+for (id, preset) in hotKeyPresets.enumerated() { _ = registerHotKey(id, defaults.integer(forKey: preset.0)) }
 
 final class StatusMenu: NSObject, NSMenuDelegate {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -55,11 +68,15 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         add(menu, "Open Lilith", #selector(open))
-        let sub = NSMenu()
-        for (i, s) in shortcuts.enumerated() {
-            add(sub, s.name, #selector(setShortcut), tag: i).state = i == defaults.integer(forKey: "shortcut") ? .on : .off
+        for (id, (title, (key, presets))) in zip(["Launcher Shortcut", "Clipboard Shortcut"], hotKeyPresets).enumerated() {
+            let sub = NSMenu()
+            for (i, s) in presets.enumerated() {
+                let m = add(sub, s.name, #selector(setShortcut), tag: i)
+                m.representedObject = id
+                m.state = i == defaults.integer(forKey: key) ? .on : .off
+            }
+            menu.addItem(withTitle: title, action: nil, keyEquivalent: "").submenu = sub
         }
-        menu.addItem(withTitle: "Shortcut", action: nil, keyEquivalent: "").submenu = sub
         menu.addItem(.separator())
         for (title, key) in [("Calculator", "calc"), ("System Commands", "system"), ("Clipboard History", "clipboard")] {
             let m = add(menu, title, #selector(toggleSetting))
@@ -83,15 +100,19 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     @objc func open() { if !Lilith.panel.isVisible { Lilith.panel.toggle() } }  // NSObject has its own `panel`
 
     @objc func setShortcut(_ m: NSMenuItem) {
-        if registerHotKey(m.tag) { return defaults.set(m.tag, forKey: "shortcut") }
+        let id = m.representedObject as! Int, key = hotKeyPresets[id].0
+        if registerHotKey(id, m.tag) { return defaults.set(m.tag, forKey: key) }
         NSSound.beep()  // taken by another app; restore the old one
-        _ = registerHotKey(defaults.integer(forKey: "shortcut"))
+        _ = registerHotKey(id, defaults.integer(forKey: key))
     }
 
     @objc func toggleSetting(_ m: NSMenuItem) {
         let key = m.representedObject as! String
         defaults.set(!defaults.bool(forKey: key), forKey: key)
-        if key == "clipboard" { Clipboard.history.removeAll() }
+        if key == "clipboard" {
+            Clipboard.history.removeAll()
+            _ = registerHotKey(1, defaults.integer(forKey: "clipboardShortcut"))  // frees the keys while off
+        }
     }
 
     @objc func clearClipboard() { Clipboard.history.removeAll() }

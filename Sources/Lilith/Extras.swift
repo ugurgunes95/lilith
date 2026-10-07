@@ -1,10 +1,26 @@
 import AppKit
+import Carbon
 
 func symbol(_ name: String) -> NSImage? { NSImage(systemSymbolName: name, accessibilityDescription: nil) }
 
 func copy(_ s: String) {
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(s, forType: .string)
+}
+
+/// Sends Cmd+V to whatever app regains focus once the panel closes. Needs Accessibility; first call prompts.
+/// Without permission the text is still on the clipboard for a manual paste.
+func paste() {
+    guard AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary) else { return }
+    // ponytail: fixed 0.1s for focus to return to the previous app. Raise it if pastes land too early.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        for down in [true, false] {
+            let e = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: down)
+            e?.flags = .maskCommand
+            e?.post(tap: .cghidEventTap)
+        }
+    }
 }
 
 // MARK: Calculator
@@ -116,7 +132,7 @@ enum Clipboard {
     static func items(_ q: String) -> [Item] {
         history.filter { q.isEmpty || $0.localizedCaseInsensitiveContains(q) }.map { s in
             let line = s.split(whereSeparator: \.isNewline).joined(separator: " ")
-            return Item(title: String(line.prefix(200)), subtitle: "Clipboard · Enter to copy", icon: { symbol("doc.on.clipboard") }) { copy(s) }
+            return Item(title: String(line.prefix(200)), subtitle: "Clipboard · Enter to paste", icon: { symbol("doc.on.clipboard") }) { copy(s); paste() }
         }
     }
 }
