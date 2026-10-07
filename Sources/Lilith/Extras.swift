@@ -106,9 +106,11 @@ func systemItems(_ q: String) -> [(Int, Item)] {
 
 // MARK: Clipboard history
 
-// ponytail: in-memory only, lost on quit; text only. Persist (encrypted) if users want history across restarts.
+// ponytail: text only, stored plaintext in the app's UserDefaults plist (readable by this macOS user only). Encrypt via Keychain if that's not enough.
 enum Clipboard {
-    static var history: [String] = []
+    static var history = UserDefaults.standard.stringArray(forKey: "clipboardHistory") ?? [] {
+        didSet { UserDefaults.standard.set(history, forKey: "clipboardHistory") }
+    }
     static var count = NSPasteboard.general.changeCount
 
     // NSPasteboard has no change notification; polling changeCount is the standard approach.
