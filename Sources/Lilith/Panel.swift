@@ -127,7 +127,8 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
                 Item(title: FileManager.default.displayName(atPath: path), subtitle: (path as NSString).abbreviatingWithTildeInPath,
                      icon: { self.icon(path) }, path: path, keepOpen: true) { self.preview(path) }
             }
-            items = Array(((calc.map { [$0] } ?? []) + ranked.sorted { $0.0 > $1.0 }.map(\.1) + found).prefix(maxRows))
+            let link = urlItem(q)
+            items = Array((([link, calc].compactMap { $0 }) + ranked.sorted { $0.0 > $1.0 }.map(\.1) + found).prefix(maxRows))
         }
         layout()
     }

@@ -84,6 +84,33 @@ func calcItem(_ q: String) -> Item? {
     return Item(title: s, subtitle: "\(q) · Enter to copy", icon: { symbol("equal.circle") }) { copy(s) }
 }
 
+// MARK: Website URLs
+
+let linkDetector = try! NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+// ponytail: bare "name.ext" whose extension is also a TLD is treated as a file, not a site. Extend the list when one slips through.
+let fileLikeTLDs: Set = ["py", "md", "sh", "rs", "pl", "zip", "mov"]
+// NSDataDetector only knows legacy TLDs on bare domains ("ugurgunes.dev" fails) but accepts any TLD after https://.
+// ponytail: hand-picked newer TLDs it misses; others need https:// typed. Ship the IANA list if that bites.
+let newTLDs: Set = ["dev", "app", "page", "store", "blog", "cloud", "shop", "design", "studio", "art", "live", "news", "world",
+                    "digital", "agency", "network", "systems", "software", "tools", "email", "website", "space", "fun", "pro", "inc", "gg", "im"]
+
+/// Whole input must be one http(s) link; bare domains get https://.
+func urlItem(_ q: String) -> Item? {
+    let s = q.trimmingCharacters(in: .whitespaces)
+    let bare = !s.contains("://")
+    let host = s.prefix { $0 != "/" }
+    let tld = host.split(separator: ".").last?.lowercased() ?? ""
+    let candidate = bare && host.contains(".") && newTLDs.contains(tld) ? "https://" + s : s
+    let all = NSRange(candidate.startIndex..., in: candidate)
+    guard !s.isEmpty, !s.contains(" "), let m = linkDetector.firstMatch(in: candidate, range: all), m.range == all,
+          m.url?.scheme?.hasPrefix("http") == true else { return nil }
+    if bare, !s.contains("/"), fileLikeTLDs.contains(tld) { return nil }
+    guard let url = bare ? URL(string: "https://" + s) : m.url else { return nil }
+    let browser = NSWorkspace.shared.urlForApplication(toOpen: url)
+    return Item(title: url.absoluteString, subtitle: "Open in " + (browser.map { FileManager.default.displayName(atPath: $0.path) } ?? "browser"),
+                icon: { browser.map { NSWorkspace.shared.icon(forFile: $0.path) } }) { NSWorkspace.shared.open(url) }
+}
+
 // MARK: System commands
 
 let systemCommands = [
