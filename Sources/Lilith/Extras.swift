@@ -112,13 +112,22 @@ func scanScripts() -> [String] {
     return ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []).filter { $0.hasSuffix(".sh") }.map { dir + "/" + $0 }
 }
 
-/// Runs in the background, cwd = script's folder. Beeps on failure; output is discarded.
+/// Runs in a new Terminal window or in the background (beep on failure, output discarded). cwd = script's folder.
 func runScript(_ path: String) {
+    let dir = URL(fileURLWithPath: path).deletingLastPathComponent().path
+    if UserDefaults.standard.bool(forKey: "scriptsInTerminal") {
+        let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }  // shell single-quote
+        let cmd = "cd \(q(dir)) && if [ -x \(q(path)) ]; then \(q(path)); else /bin/sh \(q(path)); fi"
+        let script = "tell application \"Terminal\"\nactivate\ndo script \""
+            + cmd.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\"\nend tell"
+        if NSAppleScript(source: script)?.executeAndReturnError(nil) == nil { NSSound.beep() }
+        return
+    }
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/bin/zsh")
     // Login shell for the user's PATH (GUI apps get a bare one). Executable scripts honor their shebang.
     p.arguments = ["-lc", "[ -x \"$0\" ] && exec \"$0\"; exec /bin/sh \"$0\"", path]
-    p.currentDirectoryURL = URL(fileURLWithPath: path).deletingLastPathComponent()
+    p.currentDirectoryURL = URL(fileURLWithPath: dir)
     p.terminationHandler = { if $0.terminationStatus != 0 { DispatchQueue.main.async { NSSound.beep() } } }
     do { try p.run() } catch { NSSound.beep() }
 }

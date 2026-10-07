@@ -78,14 +78,13 @@ final class StatusMenu: NSObject, NSMenuDelegate {
             menu.addItem(withTitle: title, action: nil, keyEquivalent: "").submenu = sub
         }
         menu.addItem(.separator())
-        for (title, key) in [("Calculator", "calc"), ("System Commands", "system"), ("Clipboard History", "clipboard")] {
-            let m = add(menu, title, #selector(toggleSetting))
-            m.representedObject = key
-            m.state = defaults.bool(forKey: key) ? .on : .off
-        }
+        toggle(menu, "Calculator", "calc")
+        toggle(menu, "System Commands", "system")
+        toggle(menu, "Clipboard History", "clipboard")
         add(menu, "Clear Clipboard History", #selector(clearClipboard))
         let folder = defaults.string(forKey: "scriptsFolder").map { "Scripts Folder: " + URL(fileURLWithPath: $0).lastPathComponent + "…" }
         add(menu, folder ?? "Choose Scripts Folder…", #selector(chooseScripts))
+        toggle(menu, "Run Scripts in Terminal", "scriptsInTerminal")
         menu.addItem(.separator())
         add(menu, "Launch at Login", #selector(toggleLogin)).state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(withTitle: "Quit Lilith", action: #selector(NSApplication.terminate), keyEquivalent: "q")
@@ -97,6 +96,12 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         m.target = self
         m.tag = tag
         return m
+    }
+
+    func toggle(_ menu: NSMenu, _ title: String, _ key: String) {
+        let m = add(menu, title, #selector(toggleSetting))
+        m.representedObject = key
+        m.state = defaults.bool(forKey: key) ? .on : .off
     }
 
     @objc func open() { if !Lilith.panel.isVisible { Lilith.panel.toggle() } }  // NSObject has its own `panel`
