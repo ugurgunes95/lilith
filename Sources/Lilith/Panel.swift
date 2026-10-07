@@ -1,13 +1,16 @@
 import AppKit
+import Quartz
 
 struct Item {
     let title: String
     let subtitle: String
     let icon: () -> NSImage?  // lazy: only visible rows load icons
+    var path: String? = nil  // set = ⌘K actions available
+    var keepOpen = false  // Quick Look needs the panel alive as its controller
     let action: () -> Void
 }
 
-final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableViewDelegate, NSWindowDelegate {
+final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableViewDelegate, NSWindowDelegate, QLPreviewPanelDataSource {
     let width: CGFloat = 640, fieldHeight: CGFloat = 56, rowHeight: CGFloat = 44, maxRows = 8
     let field = NSTextField()
     let table = NSTableView()
@@ -20,6 +23,8 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     // ponytail: all-time activation counts, no decay. Add time decay if old favorites linger.
     var usage = UserDefaults.standard.dictionary(forKey: "usage") as? [String: Int] ?? [:]
     var top: CGFloat = 0
+    var inActions = false
+    var previewURL: URL?
 
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
@@ -77,6 +82,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     }
 
     override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }  // stays main while the preview is key, so it keeps controlling it
 
     func toggle(query: String = "") {
         if isVisible { return orderOut(nil) }
@@ -94,6 +100,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     }
 
     func refresh() {
+        inActions = false
         let q = field.stringValue
         let d = UserDefaults.standard
         if d.bool(forKey: "clipboard"), q == "cb" || q.hasPrefix("cb ") {
@@ -101,14 +108,14 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
         } else {
             let ranked = apps.compactMap { app in
                 (q.isEmpty ? usage[app.id] : score(q, app.name)).map { s in
-                    (s, Item(title: app.name, subtitle: app.path, icon: { self.icon(app.path) }) {
+                    (s, Item(title: app.name, subtitle: app.path, icon: { self.icon(app.path) }, path: app.path) {
                         NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
                     })
                 }
             } + scripts.compactMap { path in
                 let name = String(URL(fileURLWithPath: path).lastPathComponent.dropLast(3))
                 return score(q, name).map { s in
-                    (s, Item(title: name, subtitle: path, icon: { self.icon(path) }) {
+                    (s, Item(title: name, subtitle: path, icon: { self.icon(path) }, path: path) {
                         runScript(path) { self.showOutput(name, $0, $1) }
                     })
                 }
@@ -117,7 +124,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
             files.search(d.bool(forKey: "files") ? q : "")
             let found = files.results.map { path in
                 Item(title: FileManager.default.displayName(atPath: path), subtitle: (path as NSString).abbreviatingWithTildeInPath,
-                     icon: { self.icon(path) }) { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
+                     icon: { self.icon(path) }, path: path, keepOpen: true) { self.preview(path) }
             }
             items = Array(((calc.map { [$0] } ?? []) + ranked.sorted { $0.0 > $1.0 }.map(\.1) + found).prefix(maxRows))
         }
@@ -155,9 +162,48 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
 
     func run(_ row: Int) {
         guard items.indices.contains(row) else { return }
-        orderOut(nil)
+        if !items[row].keepOpen { orderOut(nil) }
         items[row].action()
     }
+
+    /// ⌘K: actions for the selected file/app/script, replacing the result list. Esc goes back.
+    func showActions() {
+        guard items.indices.contains(table.selectedRow), let path = items[table.selectedRow].path else { return NSSound.beep() }
+        let name = items[table.selectedRow].title, url = URL(fileURLWithPath: path)
+        items = [
+            Item(title: "Quick Look", subtitle: name, icon: { symbol("eye") }, keepOpen: true) { self.preview(path) },
+            Item(title: "Open", subtitle: name, icon: { symbol("arrow.up.forward.app") }) { NSWorkspace.shared.open(url) },
+            Item(title: "Reveal in Finder", subtitle: name, icon: { symbol("folder") }) {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            },
+        ]
+        layout()
+        inActions = true
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+              event.charactersIgnoringModifiers == "k" else { return super.performKeyEquivalent(with: event) }
+        showActions()
+        return true
+    }
+
+    // MARK: Quick Look (panel stays open: it's the preview's controller via the responder chain)
+
+    func preview(_ path: String) {
+        previewURL = URL(fileURLWithPath: path)
+        let ql = QLPreviewPanel.shared()!
+        ql.isVisible ? ql.reloadData() : ql.makeKeyAndOrderFront(nil)
+    }
+
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = self }
+    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = nil
+        orderOut(nil)  // preview closed = done, like opening a file; never grab focus back from another app
+    }
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { previewURL == nil ? 0 : 1 }
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! { previewURL as NSURL? }
 
     @objc func clicked() { run(table.clickedRow) }
 
@@ -177,7 +223,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
         case #selector(NSResponder.moveUp(_:)): move(-1)
         case #selector(NSResponder.moveDown(_:)): move(1)
         case #selector(NSResponder.insertNewline(_:)): run(table.selectedRow)
-        case #selector(NSResponder.cancelOperation(_:)): orderOut(nil)
+        case #selector(NSResponder.cancelOperation(_:)): inActions ? refresh() : orderOut(nil)
         default: return false
         }
         return true
@@ -206,5 +252,8 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
 
     // MARK: NSWindowDelegate
 
-    func windowDidResignKey(_ notification: Notification) { orderOut(nil) }
+    func windowDidResignKey(_ notification: Notification) {
+        if QLPreviewPanel.sharedPreviewPanelExists() && QLPreviewPanel.shared().isVisible { return }  // focus went to the preview
+        orderOut(nil)
+    }
 }
