@@ -183,11 +183,18 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
         inActions = true
     }
 
+    // Accessory apps have no Edit menu, so the standard text shortcuts are routed by hand.
+    static let editActions: [String: Selector] = ["a": #selector(NSResponder.selectAll(_:)), "c": #selector(NSText.copy(_:)),
+                                                  "v": #selector(NSText.paste(_:)), "x": #selector(NSText.cut(_:)),
+                                                  "z": Selector(("undo:")), "Z": Selector(("redo:"))]
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-              event.charactersIgnoringModifiers == "k" else { return super.performKeyEquivalent(with: event) }
-        showActions()
-        return true
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.shift)
+        let key = event.charactersIgnoringModifiers ?? ""
+        guard mods == .command else { return super.performKeyEquivalent(with: event) }
+        if key == "k" { showActions(); return true }
+        if let action = Self.editActions[key], NSApp.sendAction(action, to: nil, from: self) { return true }
+        return super.performKeyEquivalent(with: event)
     }
 
     // MARK: Quick Look (panel stays open: it's the preview's controller via the responder chain)
