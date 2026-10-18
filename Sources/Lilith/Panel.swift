@@ -36,6 +36,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         delegate = self
         files.onUpdate = { [weak self] in self?.refresh() }
+        Rates.onUpdate = { [weak self] in if self?.isVisible == true { self?.refresh() } }
 
         let bg = NSVisualEffectView()
         bg.material = .hudWindow
@@ -89,6 +90,7 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
         NSApp.unhideWithoutActivation()  // closing a preview hides the app, and a hidden app's windows can't show
         apps = scanApps()
         scripts = scanScripts()
+        Rates.refreshIfStale()
         field.stringValue = query
         let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main!
         let vf = screen.visibleFrame
@@ -122,13 +124,14 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
                 }
             } + (d.bool(forKey: "system") ? systemItems(q) : [])
             let calc = d.bool(forKey: "calc") ? calcItem(q) : nil
+            let conversion = d.bool(forKey: "convert") ? conversionItem(q) : nil
             files.search(d.bool(forKey: "files") ? q : "")
             let found = files.results.map { path in
                 Item(title: FileManager.default.displayName(atPath: path), subtitle: (path as NSString).abbreviatingWithTildeInPath,
                      icon: { self.icon(path) }, path: path, keepOpen: true) { self.preview(path) }
             }
             let link = urlItem(q)
-            items = Array((([link, calc].compactMap { $0 }) + ranked.sorted { $0.0 > $1.0 }.map(\.1) + found).prefix(maxRows))
+            items = Array((([link, calc, conversion].compactMap { $0 }) + ranked.sorted { $0.0 > $1.0 }.map(\.1) + found).prefix(maxRows))
         }
         layout()
     }

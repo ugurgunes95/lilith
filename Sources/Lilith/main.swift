@@ -8,12 +8,13 @@ if CommandLine.arguments.contains("--selftest") {
 }
 
 let defaults = UserDefaults.standard
-defaults.register(defaults: ["calc": true, "system": true, "clipboard": true, "files": true])
+defaults.register(defaults: ["calc": true, "convert": true, "system": true, "clipboard": true, "files": true])
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 let panel = Panel()
 Clipboard.start()
+Rates.refreshIfStale()
 
 // ponytail: preset list, no free-form recorder. Add a key-capture recorder if presets aren't enough.
 let launcherShortcuts: [(name: String, key: Int, mods: Int)] = [
@@ -79,6 +80,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         }
         menu.addItem(.separator())
         toggle(menu, "Calculator", "calc")
+        toggle(menu, "Conversions", "convert")
         toggle(menu, "System Commands", "system")
         toggle(menu, "File Search", "files")
         toggle(menu, "Clipboard History", "clipboard")
