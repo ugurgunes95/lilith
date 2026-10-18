@@ -15,6 +15,23 @@ Requires macOS 14 or later and the Swift toolchain (Xcode or Command Line Tools)
 
 Open `/Applications/Lilith.app`. A magnifying glass appears in the menu bar. Turn on **Launch at Login** there to keep it running.
 
+## Uninstall
+
+1. In the menu bar, turn off **Launch at Login**, then choose **Quit Lilith**.
+   If you skip this, remove Lilith from System Settings › General › Login Items afterwards.
+2. Delete the app and its data:
+
+   ```sh
+   rm -rf /Applications/Lilith.app
+   defaults delete local.lilith    # settings, clipboard history, app usage counts, saved exchange rates
+   rm -rf ~/Library/Preferences/local.lilith.plist ~/Library/Caches/local.lilith ~/Library/HTTPStorages/local.lilith
+   tccutil reset All local.lilith  # forget the Accessibility and Automation permissions
+   ```
+
+3. If you set the launcher to `⌘Space`, turn Spotlight's shortcut back on in System Settings › Keyboard › Keyboard Shortcuts › Spotlight.
+
+Lilith itself writes nothing else. Your scripts folder, and anything your scripts create, are left alone.
+
 ## Using the panel
 
 | Key | Does |
@@ -119,6 +136,16 @@ http://localhost.dev/a?b=1
 ```
 
 Bare file names that look like domains (`main.py`, `Package.swift`) are left alone.
+
+### Web search
+
+When nothing else matches, the panel offers **Search the web for “…”**. `Enter` opens a Google search for what you typed in your default browser.
+
+```
+how to center a div   → Search the web for “how to center a div”
+```
+
+The row appears only when there are no other results. File results arrive a moment after you type, so if one turns up, it takes the row's place.
 
 ### File search
 

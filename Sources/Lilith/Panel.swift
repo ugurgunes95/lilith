@@ -132,6 +132,8 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
             }
             let link = urlItem(q)
             items = Array((([link, calc, conversion].compactMap { $0 }) + ranked.sorted { $0.0 > $1.0 }.map(\.1) + found).prefix(maxRows))
+            // File results arrive later and replace this row through files.onUpdate.
+            if items.isEmpty, let web = webSearchItem(q) { items = [web] }
         }
         layout()
     }

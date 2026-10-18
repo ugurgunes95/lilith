@@ -115,6 +115,20 @@ func urlItem(_ q: String) -> Item? {
                 icon: { browser.map { NSWorkspace.shared.icon(forFile: $0.path) } }) { NSWorkspace.shared.open(url) }
 }
 
+// ponytail: Google only; browsers don't expose their search engine setting. Add a menu choice if another is wanted.
+func webSearchURL(_ q: String) -> URL? {
+    q.addingPercentEncoding(withAllowedCharacters: .alphanumerics).flatMap { URL(string: "https://www.google.com/search?q=" + $0) }
+}
+
+/// Fallback row when nothing else matches.
+func webSearchItem(_ q: String) -> Item? {
+    let s = q.trimmingCharacters(in: .whitespaces)
+    guard !s.isEmpty, let url = webSearchURL(s) else { return nil }
+    let browser = NSWorkspace.shared.urlForApplication(toOpen: url)
+    return Item(title: "Search the web for “\(s)”", subtitle: "Google in " + (browser.map { FileManager.default.displayName(atPath: $0.path) } ?? "browser"),
+                icon: { browser.map { NSWorkspace.shared.icon(forFile: $0.path) } }) { NSWorkspace.shared.open(url) }
+}
+
 // MARK: System commands
 
 let systemCommands = [

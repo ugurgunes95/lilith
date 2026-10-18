@@ -97,6 +97,7 @@ func selftest() {
     precondition(conv("2+2") == nil)
     precondition(conv("1password") == nil)
     precondition(conv("safari") == nil)
+    precondition(webSearchURL("c++ & ğ")?.absoluteString == "https://www.google.com/search?q=c%2B%2B%20%26%20%C4%9F")
     precondition(urlItem("github.com")?.title == "https://github.com")
     precondition(urlItem("http://localhost.dev/a?b=1")?.title == "http://localhost.dev/a?b=1")
     precondition(urlItem("www.apple.com/tr ") != nil)
