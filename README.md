@@ -4,6 +4,8 @@ A small, fast Spotlight alternative for macOS. Press a shortcut, type, hit Enter
 
 Lilith lives in the menu bar (no Dock icon) and opens a search panel on the screen your mouse is on. It's plain Swift and AppKit with no dependencies.
 
+<img src="screenshots/1.png" alt="The Lilith panel listing most used apps" width="700">
+
 ## Install
 
 Requires macOS 14 or later, on Apple Silicon or Intel.
@@ -161,6 +163,8 @@ $100             → ₺4.952,70      (no target: converts to your currency)
 - Rates come from [Exchange Rate API](https://www.exchangerate-api.com) (free, no key). They update once a day, and each result shows the rate date.
 - Lilith fetches rates at launch and when you open the panel if they're over 12 hours old. Rates are saved, so conversions work offline. Only the rate list is downloaded; what you type is never sent anywhere.
 
+<img src="screenshots/3.png" alt="Converting 1000£ to Turkish lira" width="600">
+
 ### Websites
 
 Type a URL and `Enter` opens it in your default browser.
@@ -183,6 +187,8 @@ how to center a div   → Search the web for “how to center a div”
 
 The row appears only when there are no other results. File results arrive a moment after you type, so if one turns up, it takes the row's place.
 
+<img src="screenshots/4.png" alt="Search the web for “What is rag”" width="600">
+
 ### File search
 
 Searches file and folder **names and contents** in your home folder via the Spotlight index. Type at least 3 characters.
@@ -194,6 +200,8 @@ invoice          → invoice-2026.pdf, files containing the word "invoice"…
 - Name matches come first, then content matches, each sorted by last used. Up to 20 results.
 - Skips `~/Library`, hidden folders and `node_modules`.
 - `Enter` opens a **Quick Look** preview. `⌘K` offers **Quick Look**, **Open** and **Reveal in Finder**.
+
+<img src="screenshots/6.png" alt="⌘K actions for vite.config.ts: Quick Look, Open, Reveal in Finder" width="600">
 
 ### Clipboard history
 
@@ -207,6 +215,8 @@ cb invoice       → only items containing "invoice"
 - `Enter` pastes the item into the app you were using. The first time, macOS asks for **Accessibility** permission. Without it, the item is still copied and you paste with `⌘V`.
 - Passwords copied from password managers are never recorded.
 - History survives restarts. **Clear Clipboard History** in the menu empties it.
+
+<img src="screenshots/5.png" alt="Clipboard history opened with cb" width="600">
 
 ### Scripts
 
@@ -242,6 +252,8 @@ log out          → Log Out
 These go through System Events, so macOS asks for **Automation** permission the first time.
 
 ## Menu bar settings
+
+<img src="screenshots/2.png" alt="The Lilith menu bar menu" width="300">
 
 | Item | |
 |---|---|
