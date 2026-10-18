@@ -15,6 +15,8 @@ Requires macOS 14 or later and the Swift toolchain (Xcode or Command Line Tools)
 
 Open `/Applications/Lilith.app`. A magnifying glass appears in the menu bar. Turn on **Launch at Login** there to keep it running.
 
+Optional but recommended: run `./make-signing-cert.sh` once before building. It creates a self-signed "Lilith Code Signing" certificate in your login keychain that `build.sh` then signs with. Without it, each build gets a new ad-hoc signature, and macOS may drop the Accessibility permission (used by clipboard paste and full screen) after every rebuild.
+
 ## Uninstall
 
 1. In the menu bar, turn off **Launch at Login**, then choose **Quit Lilith**.
@@ -27,6 +29,8 @@ Open `/Applications/Lilith.app`. A magnifying glass appears in the menu bar. Tur
    rm -rf ~/Library/Preferences/local.lilith.plist ~/Library/Caches/local.lilith ~/Library/HTTPStorages/local.lilith
    tccutil reset All local.lilith  # forget the Accessibility and Automation permissions
    ```
+
+   If you ran `make-signing-cert.sh`, delete "Lilith Code Signing" in Keychain Access too.
 
 3. If you set the launcher to `⌘Space`, turn Spotlight's shortcut back on in System Settings › Keyboard › Keyboard Shortcuts › Spotlight.
 
@@ -184,6 +188,16 @@ deploy           → runs deploy.sh
 - By default they run in the background. When a script finishes, the panel reopens with its exit status and output (`Enter` copies all of it, or pick one line). Scripts that succeed silently show nothing.
 - Turn on **Run Scripts in Terminal** to run them in a new Terminal window instead.
 
+### Full screen at launch
+
+Turn on **Open Apps in Full Screen** in the menu, and every app you launch opens its windows in native macOS full screen, each in its own Space. It happens once per launch: if you leave full screen, the app stays that way until you quit and reopen it.
+
+- Needs **Accessibility** permission. macOS asks when you turn it on.
+- Apps without a Dock icon (menu bar utilities, background helpers) are ignored.
+- Lilith waits up to about 5 seconds for an app's first window. Apps that ignore the full screen request get the ⌃⌘F shortcut instead.
+- Exceptions: **Full Screen Exceptions** in the menu lists skipped apps (pick one to remove it) and offers **Skip “…”** for the app you're using. In the panel, `⌘K` on an app offers **Don't Open in Full Screen** / **Allow Full Screen**. Finder is skipped by default.
+- Replaces the separate MacFS app. If MacFS was set up, Lilith takes over its exceptions and on/off state on first launch.
+
 ### System commands
 
 ```
@@ -204,6 +218,7 @@ These go through System Events, so macOS asks for **Automation** permission the 
 | Clipboard Shortcut | `⇧⌘V`, `⌃⌥V`, `⌥⌘V`, `⌃⌘V` |
 | Calculator, Conversions, System Commands, File Search, Clipboard History | Turn each feature on or off |
 | Clear Clipboard History | |
+| Open Apps in Full Screen / Full Screen Exceptions | See [Full screen at launch](#full-screen-at-launch) |
 | Choose Scripts Folder… / Run Scripts in Terminal | See [Scripts](#scripts) |
 | Launch at Login | |
 | Quit Lilith | |
@@ -224,4 +239,6 @@ swift build                       # debug build
 | `Sources/Lilith/Apps.swift` | App scanning, match scoring, self-test |
 | `Sources/Lilith/Extras.swift` | Calculator, websites, system commands, file search, scripts, clipboard |
 | `Sources/Lilith/Convert.swift` | Unit and currency conversions, exchange rates |
+| `Sources/Lilith/Fullscreen.swift` | Full screen at launch, exceptions, MacFS import |
+| `make-signing-cert.sh` | One-time stable signing identity (see [Install](#install)) |
 | `Resources/` | `Info.plist` and app icon |

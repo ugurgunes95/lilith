@@ -177,13 +177,21 @@ final class Panel: NSPanel, NSTextFieldDelegate, NSTableViewDataSource, NSTableV
     func showActions() {
         guard items.indices.contains(table.selectedRow), let path = items[table.selectedRow].path else { return NSSound.beep() }
         let name = items[table.selectedRow].title, url = URL(fileURLWithPath: path)
-        items = [
+        var actions = [
             Item(title: "Quick Look", subtitle: name, icon: { symbol("eye") }, keepOpen: true) { self.preview(path) },
             Item(title: "Open", subtitle: name, icon: { symbol("arrow.up.forward.app") }) { NSWorkspace.shared.open(url) },
             Item(title: "Reveal in Finder", subtitle: name, icon: { symbol("folder") }) {
                 NSWorkspace.shared.activateFileViewerSelecting([url])
             },
         ]
+        if UserDefaults.standard.bool(forKey: "fullscreen"), path.hasSuffix(".app"), let id = Bundle(path: path)?.bundleIdentifier {
+            let skipped = Fullscreen.skip.contains(id)
+            actions.append(Item(title: skipped ? "Allow Full Screen" : "Don't Open in Full Screen", subtitle: name,
+                                icon: { symbol(skipped ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left") }) {
+                Fullscreen.toggle(id)
+            })
+        }
+        items = actions
         layout()
         inActions = true
     }

@@ -10,7 +10,11 @@ cp .build/release/Lilith "$APP/Contents/MacOS/"
 mkdir -p "$APP/Contents/Resources"
 cp Resources/Info.plist "$APP/Contents/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
-codesign --force --sign - "$APP"
+# A stable identity keeps Accessibility grants across rebuilds; ad-hoc signatures change every build.
+# Create it once with ./make-signing-cert.sh.
+SIGN=-
+security find-identity -p codesigning | grep -q '"Lilith Code Signing"' && SIGN="Lilith Code Signing"
+codesign --force --sign "$SIGN" "$APP"
 echo "Built $APP"
 if [ "$1" = "--install" ]; then
     rm -rf /Applications/Lilith.app

@@ -8,13 +8,14 @@ if CommandLine.arguments.contains("--selftest") {
 }
 
 let defaults = UserDefaults.standard
-defaults.register(defaults: ["calc": true, "convert": true, "system": true, "clipboard": true, "files": true])
+defaults.register(defaults: ["calc": true, "convert": true, "system": true, "clipboard": true, "files": true, "fullscreen": false])
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 let panel = Panel()
 Clipboard.start()
 Rates.refreshIfStale()
+Fullscreen.start()
 
 // ponytail: preset list, no free-form recorder. Add a key-capture recorder if presets aren't enough.
 let launcherShortcuts: [(name: String, key: Int, mods: Int)] = [
@@ -85,6 +86,19 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         toggle(menu, "File Search", "files")
         toggle(menu, "Clipboard History", "clipboard")
         add(menu, "Clear Clipboard History", #selector(clearClipboard))
+        toggle(menu, "Open Apps in Full Screen", "fullscreen")
+        let skips = NSMenu()
+        if let front = NSWorkspace.shared.frontmostApplication, let id = front.bundleIdentifier,
+           id != Bundle.main.bundleIdentifier, !Fullscreen.skip.contains(id) {
+            add(skips, "Skip “\(front.localizedName ?? id)”", #selector(toggleSkip)).representedObject = id
+            skips.addItem(.separator())
+        }
+        for id in Fullscreen.skip.sorted(by: { appName($0).localizedCompare(appName($1)) == .orderedAscending }) {
+            let m = add(skips, appName(id), #selector(toggleSkip))  // checked; picking one removes it
+            m.representedObject = id
+            m.state = .on
+        }
+        menu.addItem(withTitle: "Full Screen Exceptions", action: nil, keyEquivalent: "").submenu = skips
         let folder = defaults.string(forKey: "scriptsFolder").map { "Scripts Folder: " + URL(fileURLWithPath: $0).lastPathComponent + "…" }
         add(menu, folder ?? "Choose Scripts Folder…", #selector(chooseScripts))
         toggle(menu, "Run Scripts in Terminal", "scriptsInTerminal")
@@ -119,11 +133,14 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     @objc func toggleSetting(_ m: NSMenuItem) {
         let key = m.representedObject as! String
         defaults.set(!defaults.bool(forKey: key), forKey: key)
+        if key == "fullscreen", defaults.bool(forKey: key) { Fullscreen.askForAccess() }
         if key == "clipboard" {
             Clipboard.history.removeAll()
             _ = registerHotKey(1, defaults.integer(forKey: "clipboardShortcut"))  // frees the keys while off
         }
     }
+
+    @objc func toggleSkip(_ m: NSMenuItem) { Fullscreen.toggle(m.representedObject as! String) }
 
     @objc func clearClipboard() { Clipboard.history.removeAll() }
 
