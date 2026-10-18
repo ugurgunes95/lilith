@@ -72,6 +72,8 @@ func selftest() {
     precondition(calc("2+") == nil)
     precondition(calc("(1+2") == nil)
     precondition(calc("safari") == nil)
+    precondition(numberFormat(Locale(identifier: "tr_TR"), grouped: true).string(from: 14_000_000.5) == "14.000.000,5")
+    precondition(numberFormat(Locale(identifier: "en_US"), grouped: true).string(from: 14_000_000.5) == "14,000,000.5")
     precondition(urlItem("github.com")?.title == "https://github.com")
     precondition(urlItem("http://localhost.dev/a?b=1")?.title == "http://localhost.dev/a?b=1")
     precondition(urlItem("www.apple.com/tr ") != nil)

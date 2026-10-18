@@ -70,18 +70,22 @@ func calc(_ input: String) -> Double? {
     return v
 }
 
-let numberFormat: NumberFormatter = {
+/// Uses the system's region number format: 14.000.000 in Turkish, 14,000,000 in English.
+func numberFormat(_ locale: Locale = .current, grouped: Bool) -> NumberFormatter {
     let f = NumberFormatter()
+    f.locale = locale
     f.numberStyle = .decimal
-    f.usesGroupingSeparator = false
+    f.usesGroupingSeparator = grouped
     f.maximumFractionDigits = 10
     return f
-}()
+}
+let shownNumber = numberFormat(grouped: true)
+let copiedNumber = numberFormat(grouped: false)  // grouping separators break pasting into other calculators
 
 func calcItem(_ q: String) -> Item? {
     guard q.contains(where: { "+-*/^".contains($0) }), let v = calc(q),
-          let s = numberFormat.string(from: v as NSNumber) else { return nil }
-    return Item(title: s, subtitle: "\(q) · Enter to copy", icon: { symbol("equal.circle") }) { copy(s) }
+          let s = shownNumber.string(from: v as NSNumber), let raw = copiedNumber.string(from: v as NSNumber) else { return nil }
+    return Item(title: s, subtitle: "\(q) · Enter to copy", icon: { symbol("equal.circle") }) { copy(raw) }
 }
 
 // MARK: Website URLs
