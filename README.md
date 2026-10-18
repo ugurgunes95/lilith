@@ -6,28 +6,46 @@ Lilith lives in the menu bar (no Dock icon) and opens a search panel on the scre
 
 ## Install
 
-Requires macOS 14 or later and the Swift toolchain (Xcode or Command Line Tools).
+Requires macOS 14 or later, on Apple Silicon or Intel.
 
 ```sh
-./build.sh            # builds build/Lilith.app
-./build.sh --install  # also copies it to /Applications
+brew install --cask ugurgunes95/tap/lilith
 ```
 
-Open `/Applications/Lilith.app`. A magnifying glass appears in the menu bar. Turn on **Launch at Login** there to keep it running.
+Lilith is signed but not notarized by Apple, so macOS blocks the first launch. Open it once, then go to System Settings › Privacy & Security and click **Open Anyway**. Upgrades with `brew upgrade` keep that approval.
 
-Optional but recommended: run `./make-signing-cert.sh` once before building. It creates a self-signed "Lilith Code Signing" certificate in your login keychain that `build.sh` then signs with. Without it, each build gets a new ad-hoc signature, and macOS may drop the Accessibility permission (used by clipboard paste and full screen) after every rebuild.
+A magnifying glass appears in the menu bar. Turn on **Launch at Login** there to keep it running. Clipboard paste and full screen ask for **Accessibility** permission the first time you use them.
+
+### Build from source
+
+Needs the Swift toolchain (Xcode or Command Line Tools).
+
+```sh
+./make-signing-cert.sh  # once: creates a "Lilith Code Signing" identity in your login keychain
+./build.sh              # builds build/Lilith.app (universal)
+./build.sh --install    # also copies it to /Applications
+```
+
+The certificate step is optional but recommended. Without it each build gets a new ad-hoc signature, and macOS may drop the Accessibility permission after every rebuild.
 
 ## Uninstall
 
 1. In the menu bar, turn off **Launch at Login**, then choose **Quit Lilith**.
    If you skip this, remove Lilith from System Settings › General › Login Items afterwards.
-2. Delete the app and its data:
+2. Remove the app and its data (settings, clipboard history, app usage counts, saved exchange rates):
+
+   ```sh
+   brew uninstall --zap --cask lilith
+   tccutil reset All dev.ugurgunes.lilith  # forget the Accessibility and Automation permissions
+   ```
+
+   Built from source instead? Delete the app and data by hand:
 
    ```sh
    rm -rf /Applications/Lilith.app
-   defaults delete local.lilith    # settings, clipboard history, app usage counts, saved exchange rates
-   rm -rf ~/Library/Preferences/local.lilith.plist ~/Library/Caches/local.lilith ~/Library/HTTPStorages/local.lilith
-   tccutil reset All local.lilith  # forget the Accessibility and Automation permissions
+   defaults delete dev.ugurgunes.lilith
+   rm -rf ~/Library/Preferences/dev.ugurgunes.lilith.plist ~/Library/Caches/dev.ugurgunes.lilith ~/Library/HTTPStorages/dev.ugurgunes.lilith
+   tccutil reset All dev.ugurgunes.lilith
    ```
 
    If you ran `make-signing-cert.sh`, delete "Lilith Code Signing" in Keychain Access too.
@@ -240,5 +258,20 @@ swift build                       # debug build
 | `Sources/Lilith/Extras.swift` | Calculator, websites, system commands, file search, scripts, clipboard |
 | `Sources/Lilith/Convert.swift` | Unit and currency conversions, exchange rates |
 | `Sources/Lilith/Fullscreen.swift` | Full screen at launch, exceptions, MacFS import |
-| `make-signing-cert.sh` | One-time stable signing identity (see [Install](#install)) |
+| `make-signing-cert.sh` | One-time stable signing identity (see [Build from source](#build-from-source)) |
+| `release.sh` | Publishes a release and updates the Homebrew cask |
 | `Resources/` | `Info.plist` and app icon |
+
+### Releasing
+
+```sh
+./release.sh 1.1.0
+```
+
+Needs a clean working tree, the "Lilith Code Signing" identity, a logged-in `gh`, and a clone of [ugurgunes95/homebrew-tap](https://github.com/ugurgunes95/homebrew-tap) next to this repo (or at `$TAP_DIR`). It sets the version, builds and zips the universal app, tags and pushes, creates the GitHub release, and pushes the updated `Casks/lilith.rb` to the tap.
+
+Always sign releases with the same certificate: macOS ties the Gatekeeper approval and Accessibility permission to it. Keep a backup (Keychain Access › export as .p12).
+
+## License
+
+MIT, see [LICENSE](LICENSE).
