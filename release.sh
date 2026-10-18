@@ -53,6 +53,14 @@ cask "lilith" do
     "~/Library/HTTPStorages/$ID",
     "~/Library/Preferences/$ID.plist",
   ]
+
+  caveats <<~EOS
+    Lilith is not notarized by Apple, so macOS blocks the first launch.
+    In the warning, click Done (not Move to Trash). Then open
+    System Settings > Privacy & Security and click "Open Anyway" next to Lilith.
+    Upgrades keep the approval. Details:
+      https://github.com/$REPO#first-launch-apple-could-not-verify-lilith
+  EOS
 end
 CASK
 git -C "$TAP" add Casks/lilith.rb

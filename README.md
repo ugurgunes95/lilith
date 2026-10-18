@@ -12,7 +12,21 @@ Requires macOS 14 or later, on Apple Silicon or Intel.
 brew install --cask ugurgunes95/tap/lilith
 ```
 
-Lilith is signed but not notarized by Apple, so macOS blocks the first launch. Open it once, then go to System Settings › Privacy & Security and click **Open Anyway**. Upgrades with `brew upgrade` keep that approval.
+### First launch: "Apple could not verify Lilith"
+
+Lilith is signed but not notarized by Apple (notarization needs a paid Apple Developer account), so macOS blocks the first launch with a warning that it can't verify the app is free of malware. To allow it, once:
+
+1. Open Lilith. When the warning appears, click **Done**. **Don't click Move to Trash**: that deletes the app.
+2. Open System Settings › Privacy & Security and scroll down to **Security**. Next to *"Lilith" was blocked to protect your Mac*, click **Open Anyway**.
+3. Confirm with your password or Touch ID, then click **Open Anyway** once more.
+
+The button shows up for about an hour after a blocked launch. If it's missing, open Lilith again and go straight back to Privacy & Security.
+
+You only do this once. Every release is signed with the same certificate, so `brew upgrade` keeps the approval and the Accessibility permission.
+
+Want to check the download first? Each release's zip checksum is in the cask (`brew cat --cask lilith`), and the source of every release is tagged in this repo.
+
+### After the first launch
 
 A magnifying glass appears in the menu bar. Turn on **Launch at Login** there to keep it running. Clipboard paste and full screen ask for **Accessibility** permission the first time you use them.
 
