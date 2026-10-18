@@ -2,11 +2,12 @@
 # Usage: ./build.sh [--install]   builds build/Lilith.app, optionally copies to /Applications
 set -e
 cd "$(dirname "$0")"
-swift build -c release
+ARCHS="--arch arm64 --arch x86_64"  # universal: Apple Silicon and Intel
+swift build -c release $ARCHS
 APP=build/Lilith.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp .build/release/Lilith "$APP/Contents/MacOS/"
+cp "$(swift build -c release $ARCHS --show-bin-path)/Lilith" "$APP/Contents/MacOS/"
 mkdir -p "$APP/Contents/Resources"
 cp Resources/Info.plist "$APP/Contents/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
