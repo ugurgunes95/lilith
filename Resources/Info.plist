@@ -11,6 +11,7 @@
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>LSUIElement</key><true/>
+    <key>CFBundleAllowMixedLocalizations</key><true/>
     <key>NSAppleEventsUsageDescription</key><string>Lilith asks System Events to sleep, restart, shut down or log out, and Terminal to run your scripts.</string>
 </dict>
 </plist>
